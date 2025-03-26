@@ -1,0 +1,8 @@
+.conda/
+.vscode/
+dist/
+image_input/
+results/
+*.pyc
+
+
