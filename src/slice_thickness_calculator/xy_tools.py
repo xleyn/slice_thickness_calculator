@@ -36,8 +36,19 @@ class XY(np.ndarray):
 
 
 class XYUtils:
+    """Utility class for XY class"""
+
     @staticmethod
-    def get_x_range(xy1: XY, xy2: XY):
+    def get_x_range(xy1: XY, xy2: XY) -> np.ndarray:
+        """Gets maximum x-range from two XY objects.
+
+        Args:
+            xy1 (XY): First XY object.
+            xy2 (XY): Second XY object.
+
+        Returns:
+            np.ndarray: np.arange of full x-range of xy1 and xy2.
+        """
         x_min = min(np.concatenate([xy1.x, xy2.x]))
         x_max = max(np.concatenate([xy1.x, xy2.x]))
         x_range = np.arange(x_min, x_max + 1)

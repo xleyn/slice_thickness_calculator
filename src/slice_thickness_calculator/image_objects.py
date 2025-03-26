@@ -17,8 +17,14 @@ from utils import find_highest_peak
 
 
 class SliceThicknessImage:
+    """Class for a single slice thickness image (displaying gafchromic film)."""
 
     def __init__(self, path: Path):
+        """Initialises SliceThicknessImage class by reading image and cropping/rotating to gaf.
+
+        Args:
+            path (Path): Path to image.
+        """
         self.path = path
         self.mm_per_pix = 25.4 / self.detect_dpi(path)
 
@@ -32,7 +38,15 @@ class SliceThicknessImage:
         print(f"Image loaded: {self.path.name}")
 
     @staticmethod
-    def detect_dpi(path: Path):
+    def detect_dpi(path: Path) -> int:
+        """Detects dpi of input image.
+
+        Args:
+            path (Path): Path to input image.
+
+        Returns:
+            int: dpi on input image.
+        """
         dpi = Image.open(path).info.get("dpi")
         if dpi is None:
             print(
@@ -50,6 +64,7 @@ class SliceThicknessImage:
             return dpi[0]
 
     def rotate_and_crop_to_gaf(self):
+        """Rotates and crops all representations of image to gafchromic film."""
         # get mask of gaf
         gauss_blur = cv2.GaussianBlur(self.image["GRAY"], (3, 3), 0)
         _, thresh = cv2.threshold(
@@ -78,6 +93,7 @@ class SliceThicknessImage:
             self.image[image_key] = image[y : y + h, x : x + w]
 
     def analyse_image(self):
+        """Analyses individual image by initialising LineProfile object."""
         y_pad = 10
         shape = self.image["RGB"].shape
         self.line_profile = LineProfile(
@@ -94,6 +110,7 @@ class SliceThicknessImage:
         )
 
     def save_results_graphics(self):
+        """Saves results graphics to figures directory and displays figure."""
         fig = plt.figure(figsize=(10, 5), constrained_layout=True)
         gs = fig.add_gridspec(3, 8)
         fig_ax1 = fig.add_subplot(gs[:, :-1])
@@ -159,9 +176,18 @@ class SliceThicknessImage:
 
 
 class LineProfile:
+    """Class for a single line profile across a gafchromic film image."""
+
     def __init__(
         self, start_point: list | tuple, end_point: list | tuple, ref_image: np.ndarray
     ):
+        """Initialises LineProfile class.
+
+        Args:
+            start_point (list | tuple): Start point of line profile.
+            end_point (list | tuple): End point of line profile.
+            ref_image (np.ndarray): Image to take line profile across.
+        """
         self.start_point = np.array(start_point)
         self.end_point = np.array(end_point)
         self.ref_image = ref_image
@@ -174,7 +200,15 @@ class LineProfile:
         self.peaks = self.split_into_peaks(self.fitted_profile)
 
     @staticmethod
-    def filter_and_invert(profile: XY):
+    def filter_and_invert(profile: XY) -> XY:
+        """Applies median and savgol filters to profile and inverts it.
+
+        Args:
+            profile (XY): Input profile to smooth and invert.
+
+        Returns:
+            XY: Smoothed and inverted profile.
+        """
         profile.y = signal.medfilt(
             profile.y,
             int(len(profile.y) / 200) + 0 if int(len(profile.y) / 50) % 2 == 0 else 1,
@@ -185,7 +219,15 @@ class LineProfile:
         return profile
 
     @staticmethod
-    def split_into_peaks(profile: XY):
+    def split_into_peaks(profile: XY) -> list[Peak]:
+        """Splits line profile into Peak objects for further analysis.
+
+        Args:
+            profile (XY): Input line profile to split into peaks.
+
+        Returns:
+            list[Peak]: List of Peak objects.
+        """
         troughs, props = troughs, props = signal.find_peaks(
             -profile.y,
             height=float(np.min(-profile.y)),
@@ -201,7 +243,10 @@ class LineProfile:
 
 
 class Peak(XY):
+    """Class for processing of a singular peak."""
+
     def __init__(self, *args: list[int | float]):
+        """Initialises Peak object and calculates FWHM."""
         self.peak_idx = find_highest_peak(self.y)
         self.peak_y = self.y[self.peak_idx]
 
@@ -211,7 +256,12 @@ class Peak(XY):
         self.FWHM = self.get_FWHM()
         self.binary_profile = self.get_FWHM_binary_profile()
 
-    def get_FWHM(self):
+    def get_FWHM(self) -> float:
+        """Gets the FWHM of the peak using half height crossing idxs and linear interpolation.
+
+        Returns:
+            float: FWHM of peak.
+        """
         self.crossing_x_left = np.interp(
             self.half_height_left, self.y[: self.peak_idx], self.x[: self.peak_idx]
         )
@@ -222,7 +272,12 @@ class Peak(XY):
         )
         return self.crossing_x_right - self.crossing_x_left
 
-    def get_FWHM_binary_profile(self):
+    def get_FWHM_binary_profile(self) -> XY:
+        """Returns a binary profile, where each y-value is either set to background level or peak height, depending on x-coord.
+
+        Returns:
+            XY: binary profile to represent FWHM calculations visually.
+        """
         binary_profile = self.copy()
         binary_profile.y = np.where(
             binary_profile.x <= self.crossing_x_left,
