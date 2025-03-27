@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
 
-from scipy import ndimage
 from scipy import signal
 from skimage.measure import profile_line
 
@@ -29,12 +28,12 @@ class SliceThicknessImage:
         self.mm_per_pix = 25.4 / self.detect_dpi(path)
 
         image = cv2.imread(path)
+        image = self.rotate_and_crop_to_gaf(image)
+
         self.image = {
-            "BGR": image,
             "RGB": cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
             "GRAY": cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
         }
-        self.rotate_and_crop_to_gaf()
         print(f"Image loaded: {self.path.name}")
 
     @staticmethod
@@ -63,10 +62,51 @@ class SliceThicknessImage:
         else:
             return dpi[0]
 
-    def rotate_and_crop_to_gaf(self):
-        """Rotates and crops all representations of image to gafchromic film."""
-        # get mask of gaf
-        gauss_blur = cv2.GaussianBlur(self.image["GRAY"], (3, 3), 0)
+    @classmethod
+    def rotate_and_crop_to_gaf(cls, image: np.ndarray) -> np.ndarray:
+        """Takes a BGR image and crops to the gafchromic film, rotating so the film is axis aligned.
+
+        Args:
+            image (np.ndarray): BGR image to crop and rotate.
+
+        Returns:
+            np.ndarray: cropped and rotated image.
+        """
+        image = cv2.copyMakeBorder(
+            image,
+            image.shape[0] // 10,
+            image.shape[0] // 10,
+            image.shape[1] // 10,
+            image.shape[1] // 10,
+            borderType=cv2.BORDER_CONSTANT,
+            value=(255, 255, 255),
+        )
+        image_GRAY = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        rect = cls.locate_gafchromic_film(image_GRAY)
+        mask = np.zeros_like(image_GRAY)
+        cv2.fillPoly(mask, [np.intp(cv2.boxPoints(rect))], 255)
+
+        image = cls.rotate_no_clip(image, rect[2])
+        mask = cls.rotate_no_clip(mask, rect[2])
+
+        image = cls.crop_to_gafchromic_film(image, mask)
+        return image
+
+    @staticmethod
+    def locate_gafchromic_film(
+        image: np.ndarray,
+    ) -> tuple[tuple[float, float], tuple[float, float], float]:
+        """Locates the gafchromic film in the image, returning rect params for a rect enclosing the film.
+
+        Args:
+            image (np.ndarray): Image to locate film within.
+
+        Returns:
+            tuple[tuple[float, float], tuple[float, float], float]: Rect enclosing film.
+        """
+
+        gauss_blur = cv2.GaussianBlur(image, (3, 3), 0)
         _, thresh = cv2.threshold(
             gauss_blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
         )
@@ -75,27 +115,71 @@ class SliceThicknessImage:
         rect = cv2.minAreaRect(contour)
         if rect[1][0] > rect[1][1]:
             rect = (rect[0], rect[1][::-1], rect[2] + 90)
-        mask = np.zeros_like(self.image["GRAY"])
-        cv2.fillPoly(mask, [np.intp(cv2.boxPoints(rect))], 255)
-        self.image["MASK"] = mask
+        return rect
 
-        # rotate all image representations
-        for image_key, image in self.image.items():
-            self.image[image_key] = ndimage.rotate(image, rect[2], reshape=True)
+    @staticmethod
+    def rotate_no_clip(image: np.ndarray, theta: float | int) -> np.ndarray:
+        """Rotates an image by angle theta. Ensures that gaf film does not clip out of image after rotation.
 
-        # crop all images to gaf
-        contours, _ = cv2.findContours(
-            self.image["MASK"], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        Args:
+            image (np.ndarray): Image to rotate.
+            theta (float | int): Angle of rotation.
+
+        Returns:
+            np.ndarray: Rotated image.
+        """
+
+        (h, w) = image.shape[:2]
+        # Calculate the center of the image
+        center = (w // 2, h // 2)
+
+        # Calculate the rotation matrix
+        matrix = cv2.getRotationMatrix2D(center, theta, 1.0)
+
+        # Get the new bounding box dimensions after rotation
+        abs_cos = abs(matrix[0, 0])
+        abs_sin = abs(matrix[0, 1])
+
+        # Calculate the new width and height
+        new_w = int(h * abs_sin + w * abs_cos)
+        new_h = int(h * abs_cos + w * abs_sin)
+
+        # Adjust the rotation matrix to account for translation (shifting the image to prevent clipping)
+        matrix[0, 2] += (new_w / 2) - center[0]
+        matrix[1, 2] += (new_h / 2) - center[1]
+
+        # Rotate the image and resize it to the new size (without clipping)
+        rotated_image = cv2.warpAffine(
+            image,
+            matrix,
+            (new_w, new_h),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
         )
+
+        return rotated_image
+
+    @staticmethod
+    def crop_to_gafchromic_film(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        """Crops the image to the gafchromic film given a cropping mask.
+
+        Args:
+            image (np.ndarray): Image to crop to film.
+            mask (np.ndarray): Mask to crop to (using bbox)
+
+        Returns:
+            np.ndarray: Image cropped to film.
+        """
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
         x, y, w, h = cv2.boundingRect(contour)
-        for image_key, image in self.image.items():
-            self.image[image_key] = image[y : y + h, x : x + w]
+        cropped_image = image[y : y + h, x : x + w]
+        return cropped_image
 
     def analyse_image(self):
         """Analyses individual image by initialising LineProfile object."""
-        y_pad = 10
         shape = self.image["RGB"].shape
+        y_pad = min(10, shape[0] // 75)
         self.line_profile = LineProfile(
             [shape[1] // 2, y_pad],
             [shape[1] // 2, shape[0] - y_pad],
@@ -219,7 +303,7 @@ class LineProfile:
         return profile
 
     @staticmethod
-    def split_into_peaks(profile: XY) -> list[Peak]:
+    def split_into_peaks(profile: XY) -> list["Peak"]:
         """Splits line profile into Peak objects for further analysis.
 
         Args:
