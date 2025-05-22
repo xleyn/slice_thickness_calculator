@@ -293,9 +293,11 @@ class LineProfile:
         Returns:
             XY: Smoothed and inverted profile.
         """
+        k = len(profile.y) // 50
+        k += (k + 1) % 2
         profile.y = signal.medfilt(
             profile.y,
-            int(len(profile.y) / 200) + 0 if int(len(profile.y) / 50) % 2 == 0 else 1,
+            k,
         )
         profile.y = signal.savgol_filter(profile.y, int(len(profile.y) / 50), 3)
         profile.y -= np.max(profile.y)

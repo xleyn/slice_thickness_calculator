@@ -26,6 +26,7 @@ class ProfileSigmoidModel:
             -profile.y,
             height=float(np.min(-profile.y)),
             prominence=float(np.ptp(profile.y) / 4),
+            distance=len(profile.y) // 30,
         )
 
         split_indices = sorted([0, len(profile.y)] + troughs.tolist())
