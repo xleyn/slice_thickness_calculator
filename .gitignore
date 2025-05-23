@@ -1,8 +1,8 @@
 .conda/
 .vscode/
 dist/
-image_input/
-results/
+runtime_io/
+build/
 *.pyc
 
 
