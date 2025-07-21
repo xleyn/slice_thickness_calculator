@@ -5,8 +5,8 @@ import numpy as np
 from scipy import signal
 from scipy import optimize
 
-from xy_tools import XYUtils, XY
-from utils import find_highest_peak
+from src.xy import XYUtils, XY
+from src.utils import find_highest_peak
 
 
 class ProfileSigmoidModel:

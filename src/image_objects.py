@@ -9,10 +9,10 @@ from PIL import Image
 from scipy import signal
 from skimage.measure import profile_line
 
-from io_manager import IO
-from xy_tools import XY
-from profile_sigmoid_model import ProfileSigmoidModel
-from utils import find_highest_peak
+from src.io_manager import IO
+from src.xy import XY
+from src.profile_sigmoid_model import ProfileSigmoidModel
+from src.utils import find_highest_peak
 
 
 class SliceThicknessImage:
@@ -179,7 +179,7 @@ class SliceThicknessImage:
     def analyse_image(self):
         """Analyses individual image by initialising LineProfile object."""
         shape = self.image["RGB"].shape
-        y_pad = min(10, shape[0] // 75)
+        y_pad = max(5, shape[0] // 100)
         self.line_profile = LineProfile(
             [shape[1] // 2, y_pad],
             [shape[1] // 2, shape[0] - y_pad],
