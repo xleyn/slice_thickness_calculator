@@ -49,7 +49,7 @@ class XY(np.ndarray):
         # check that input is either a list or numpy.ndarray
         if isinstance(val, (np.ndarray, list)):
 
-            # check that input has the same length as current y as should not modify
+            # check that input has the same length as current y as should not modify otherwise.
             if len(val) != len(self.y):
                 raise ValueError("Cannot modify shape of XY.y")
 
