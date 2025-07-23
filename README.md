@@ -2,7 +2,7 @@
 <h2>Scope of Work</h2>
 Welcome to the Slice Thickness Calculator project. 
 This tool was developed for the Regional Radiation Protection Service (RRPS) to help automate the slice thickness validation in CT commissionings.
-The previous tools were inaccurate and inefficient, requiring slices to be analysed one at a time. 
+The previous tools were inaccurate and inefficient, requiring slices to be analysed one at a time in an Excel spreadsheet.
 The process was also less streamlined, requiring more manual user input.
 This project offers an improvement in both automation and accuracy through the use of Python scripting.
 
@@ -14,7 +14,7 @@ This project offers an improvement in both automation and accuracy through the u
 The subsequent instructions can be followed to use this tool:
 <ul>
   <li>
-    Prior to runtime, the user should scan the Gafchromic film image in at 600 dpi. 
+    Prior to runtime, the user should scan the Gafchromic film image in at 600 dpi (any dpi should work but 600 will give the most precision). 
     This image should be saved with an appropriate name in the runtime_io/image_input directory.
     If this directory is missing, run the script to rectify these issues. 
   </li>
