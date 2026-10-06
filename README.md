@@ -15,6 +15,39 @@ Welcome to the CT Slice Thickness Calculator Project! Developed for the Regional
 <p>This methodology is flawed for multiple reasons, however the most significant factor is that repeat measurements (or measurements from different people) often yields widely different results! This is due to either the misalignment of the ruler or the inconsistencies associated with judging whether the edges of a band lie (note the penumbra effect). Due to tight acceptance criteria, any variation can even cause tests to pass or fail with repeat measurements. The inconsistency highlighted the need for a new solution with improved accuracy and repeatability - and this repository is the result! The Slice Thickness Calculator Project is a Python tool that utilises image processing methods to calculate the slice thicknesses of all bands from a scanned image of the Gafchromic Film sample.<\p>
 <h2>Technical Implementation</h2>
 
+<p>Here is a brief overview of the algorithm that was designed to achieve this:
+<ul>
+  <li>The image is cropped and rotated to be axis-aligned i.e. the edges of the film are parallel to the edges of the image.</li>
+  <li>The edge of the film is located and an inset contour is drawn (see below)</li>
+  <li>A line profile is taken across the film, as below</li>
+  <img width="974" height="144" alt="image" src="https://github.com/user-attachments/assets/120a4da5-45c2-4635-b08f-e5a3978bda7f" />
+  <img width="1032" height="579" alt="image" src="https://github.com/user-attachments/assets/9daed5e6-1a83-42be-9420-e27512145097" />
+  <li>This profile will likely be noisy due to imperfections in the CT scanner, so it is required to fit a model to represent it.</li>
+  <li>This model was designed as follows:</li>
+  <ul>
+    <li>Each half of a peak in the line profile is represented by a sigmoid function, namely: 
+      <div id="toc">
+        <ul style="list-style: none">
+          <summary>
+            <h1>$\frac{A}{1+e^{-k(x-x_0)}}+B$</h1>
+          </summary>
+        </ul>
+      </div>
+      where $A, B, k$ and $x_0$ are parameters describing the shape of the sigmoid.
+    </li>
+    <li>Blend pairs of sigmoids together into distinct peaks using a blending sigmoid.</li>
+    <li>Blend all peaks together using another blending sigmoid.</li>
+    <li>As you can see by the figure below, the piecewise sigmoid model helps to mitigate against a noisy signal.</li>
+    <img width="1056" height="600" alt="image" src="https://github.com/user-attachments/assets/78dd00c0-0e48-43fa-97cd-3e5827404f7b" />
+    
+
+  </ul>
+</ul>
+
+
+</p>
+
+<img width="1486" height="802" alt="image" src="https://github.com/user-attachments/assets/cb14d661-7b32-46c9-8e0d-dcaf8650a768" />
 
 
 
